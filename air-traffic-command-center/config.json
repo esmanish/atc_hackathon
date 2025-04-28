@@ -1,0 +1,44 @@
+{
+    "flight_feeder_ip": "192.168.31.123",
+    "refresh_interval": 5,
+    "challenge_phases": {
+      "0": {
+        "name": "Introduction & Setup",
+        "duration_minutes": 30,
+        "description": "Introduction to ATC concepts, ADS-B technology and tool overview"
+      },
+      "1": {
+        "name": "Flight Identification",
+        "duration_minutes": 45,
+        "description": "Identify aircraft based on parameters, match callsigns to positions"
+      },
+      "2": {
+        "name": "Flight Pattern Analysis",
+        "duration_minutes": 45,
+        "description": "Predict movements, analyze behavior, identify flight phases"
+      },
+      "3": {
+        "name": "Emergency Response",
+        "duration_minutes": 45,
+        "description": "Respond to simulated emergencies, reroute aircraft, prioritize traffic"
+      },
+      "4": {
+        "name": "Air Traffic Control",
+        "duration_minutes": 45,
+        "description": "Manage airspace, optimize routes, handle increasing traffic"
+      },
+      "5": {
+        "name": "Final Presentations",
+        "duration_minutes": 15,
+        "description": "Team presentations, scoring results, learning outcomes"
+      }
+    },
+    "map_settings": {
+      "center_lat": 14.5,
+      "center_lon": 74.0,
+      "default_zoom": 7,
+      "max_zoom": 12,
+      "min_zoom": 5,
+      "update_interval": 5
+    }
+  }
