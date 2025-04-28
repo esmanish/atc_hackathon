@@ -41,6 +41,8 @@ def login():
     
     return render_template('login.html')
 
+# Update the dashboard route in server.py to pass the config to the template
+
 @app.route('/dashboard')
 def dashboard():
     if 'team_name' not in session:
@@ -50,10 +52,12 @@ def dashboard():
     team_score = db.get_team_score(team_name)
     current_challenge = challenge_manager.get_current_challenge()
     
+    # Pass the config to the template
     return render_template('dashboard.html', 
                           team_name=team_name, 
                           team_score=team_score,
-                          current_challenge=current_challenge)
+                          current_challenge=current_challenge,
+                          map_config=config.get('map_settings', {}))
 
 @app.route('/scoreboard')
 def scoreboard():

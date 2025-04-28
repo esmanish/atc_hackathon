@@ -331,11 +331,11 @@
     <script>
         // Load map configuration from server config
         const mapConfig = {
-            center: [{{ config.map_settings.center_lat|default(14.5) }}, {{ config.map_settings.center_lon|default(74.0) }}],
-            zoom: {{ config.map_settings.default_zoom|default(7) }},
-            maxZoom: {{ config.map_settings.max_zoom|default(12) }},
-            minZoom: {{ config.map_settings.min_zoom|default(5) }},
-            updateInterval: {{ config.map_settings.update_interval|default(5) }} // seconds
+            center: [{{ map_config.center_lat|default(14.5) }}, {{ map_config.center_lon|default(74.0) }}],
+            zoom: {{ map_config.default_zoom|default(7) }},
+            maxZoom: {{ map_config.max_zoom|default(12) }},
+            minZoom: {{ map_config.min_zoom|default(5) }},
+            updateInterval: {{ map_config.update_interval|default(5) }} // seconds
         };
         
         // Initialize the aircraft map
