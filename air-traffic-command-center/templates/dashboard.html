@@ -6,6 +6,11 @@
     <title>AirTraffic Command Center Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <!-- Add Leaflet Heat (heatmap) plugin -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Add Leaflet Rotated Marker plugin for smooth rotations -->
+    <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -23,6 +28,7 @@
             background-color: #2c3e50;
             color: white;
             padding: 10px 20px;
+            z-index: 1000;
         }
         .navbar-brand {
             font-weight: bold;
@@ -64,6 +70,7 @@
             min-width: 300px;
             max-width: 400px;
             border-left: 1px solid #dee2e6;
+            z-index: 900;
         }
         .challenge-card {
             background-color: white;
@@ -109,9 +116,17 @@
             padding: 8px 10px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
+            display: flex;
+            align-items: center;
         }
         .aircraft-item:hover {
             background-color: #f0f8ff;
+        }
+        .aircraft-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            display: inline-block;
         }
         .aircraft-detail {
             display: none;
@@ -128,10 +143,49 @@
             top: 20px;
             right: 20px;
             z-index: 1000;
-            padding: 10px;
+            padding: 15px;
+            min-width: 220px;
         }
         .filter-control {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .altitude-range-values {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+        .legend {
+            background-color: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            z-index: 1000;
+            padding: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 4px;
+        }
+        .view-controls {
+            background-color: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            padding: 10px;
         }
     </style>
 </head>
@@ -160,15 +214,33 @@
             <div class="map-container">
                 <div id="map"></div>
                 
+                <!-- View Controls -->
+                <div class="view-controls">
+                    <button id="zoom-all" class="btn btn-sm btn-primary mb-2 w-100">
+                        <i class="bi bi-zoom-out"></i> View All Aircraft
+                    </button>
+                    <button id="toggle-heatmap" class="btn btn-sm btn-outline-secondary w-100">
+                        <i class="bi bi-thermometer-half"></i> Toggle Heatmap
+                    </button>
+                </div>
+                
                 <!-- Control Panel for Filters -->
                 <div class="control-panel">
                     <h6>Filters</h6>
                     <div class="filter-control">
-                        <label for="altitude-filter" class="form-label">Min Altitude:</label>
-                        <input type="range" class="form-range" id="altitude-filter" min="0" max="40000" step="1000" value="0">
-                        <div class="d-flex justify-content-between">
+                        <label for="min-altitude-filter" class="form-label">Min Altitude:</label>
+                        <input type="range" class="form-range" id="min-altitude-filter" min="0" max="40000" step="1000" value="0">
+                        <div class="altitude-range-values">
                             <small>0 ft</small>
-                            <small>40,000 ft</small>
+                            <small id="min-altitude-value">0 ft</small>
+                        </div>
+                    </div>
+                    <div class="filter-control">
+                        <label for="max-altitude-filter" class="form-label">Max Altitude:</label>
+                        <input type="range" class="form-range" id="max-altitude-filter" min="0" max="50000" step="1000" value="50000">
+                        <div class="altitude-range-values">
+                            <small id="max-altitude-value">50,000 ft</small>
+                            <small>50,000 ft</small>
                         </div>
                     </div>
                     <div class="filter-control">
@@ -178,6 +250,27 @@
                         </div>
                     </div>
                     <button id="reset-filters" class="btn btn-sm btn-outline-secondary w-100">Reset Filters</button>
+                </div>
+                
+                <!-- Map Legend -->
+                <div class="legend">
+                    <div class="legend-title mb-2"><small><strong>Altitude</strong></small></div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff4444;"></div>
+                        <span>0 - 10,000 ft</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff8800;"></div>
+                        <span>10,000 - 20,000 ft</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffcc00;"></div>
+                        <span>20,000 - 30,000 ft</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #44ff44;"></div>
+                        <span>30,000+ ft</span>
+                    </div>
                 </div>
             </div>
             
@@ -231,293 +324,41 @@
 
     <!-- JavaScript Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/map.js"></script>
     
     <!-- Custom JavaScript -->
     <script>
-        // Initialize map
-        const map = L.map('map').setView([14.5, 74.0], 7);
+        // Load map configuration from server config
+        const mapConfig = {
+            center: [{{ config.map_settings.center_lat|default(14.5) }}, {{ config.map_settings.center_lon|default(74.0) }}],
+            zoom: {{ config.map_settings.default_zoom|default(7) }},
+            maxZoom: {{ config.map_settings.max_zoom|default(12) }},
+            minZoom: {{ config.map_settings.min_zoom|default(5) }},
+            updateInterval: {{ config.map_settings.update_interval|default(5) }} // seconds
+        };
         
-        // Add tile layer (map background)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 18
-        }).addTo(map);
+        // Initialize the aircraft map
+        let aircraftMap = null;
         
-        // Aircraft markers and data
-        let aircraftMarkers = {};
-        let aircraftData = {};
-        let minAltitudeFilter = 0;
-        let showPaths = false;
-        
-        // Aircraft icon
-        const aircraftIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61212.png',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-        });
-        
-        // Update aircraft data from server
-        function updateAircraftData() {
-            axios.get('/api/aircraft')
-                .then(response => {
-                    const data = response.data;
-                    aircraftData = {};
-                    
-                    // Process aircraft data
-                    if (data && data.aircraft) {
-                        data.aircraft.forEach(aircraft => {
-                            aircraftData[aircraft.hex] = aircraft;
-                        });
-                        
-                        // Update map and list
-                        updateMap();
-                        updateAircraftList();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching aircraft data:', error);
-                });
-        }
-        
-        // Update aircraft markers on the map
-        function updateMap() {
-            // Apply altitude filter
-            const filteredAircraft = Object.values(aircraftData).filter(aircraft => {
-                return aircraft.altitude >= minAltitudeFilter;
-            });
-            
-            // Add/update markers for each aircraft
-            filteredAircraft.forEach(aircraft => {
-                const position = [aircraft.lat, aircraft.lon];
-                
-                // Rotate marker based on track
-                const rotationAngle = aircraft.track || 0;
-                
-                if (aircraftMarkers[aircraft.hex]) {
-                    // Update existing marker
-                    aircraftMarkers[aircraft.hex].setLatLng(position);
-                    
-                    // Update rotation
-                    const icon = aircraftMarkers[aircraft.hex].getElement();
-                    if (icon) {
-                        icon.style.transform = `rotate(${rotationAngle}deg)`;
-                    }
-                } else {
-                    // Create new marker
-                    const marker = L.marker(position, { icon: aircraftIcon }).addTo(map);
-                    
-                    // Rotate marker
-                    const icon = marker.getElement();
-                    if (icon) {
-                        icon.style.transform = `rotate(${rotationAngle}deg)`;
-                    }
-                    
-                    // Add popup with basic info
-                    const callsign = aircraft.flight ? aircraft.flight.trim() : 'N/A';
-                    marker.bindPopup(`
-                        <strong>Flight:</strong> ${callsign}<br>
-                        <strong>Altitude:</strong> ${aircraft.altitude} ft<br>
-                        <strong>Speed:</strong> ${aircraft.speed} knots<br>
-                        <strong>Heading:</strong> ${aircraft.heading}°
-                    `);
-                    
-                    // Add click event
-                    marker.on('click', () => {
-                        showAircraftDetail(aircraft.hex);
-                    });
-                    
-                    aircraftMarkers[aircraft.hex] = marker;
-                }
-            });
-            
-            // Remove markers for aircraft that are no longer visible
-            Object.keys(aircraftMarkers).forEach(hex => {
-                if (!filteredAircraft.some(a => a.hex === hex)) {
-                    map.removeLayer(aircraftMarkers[hex]);
-                    delete aircraftMarkers[hex];
-                }
-            });
-        }
-        
-        // Update aircraft list in sidebar
-        function updateAircraftList() {
-            const aircraftList = document.getElementById('aircraft-list');
-            aircraftList.innerHTML = '';
-            
-            // Sort aircraft by callsign
-            const sortedAircraft = Object.values(aircraftData).sort((a, b) => {
-                const callsignA = a.flight ? a.flight.trim() : a.hex;
-                const callsignB = b.flight ? b.flight.trim() : b.hex;
-                return callsignA.localeCompare(callsignB);
-            });
-            
-            // Add each aircraft to the list
-            sortedAircraft.forEach(aircraft => {
-                const callsign = aircraft.flight ? aircraft.flight.trim() : 'Unknown';
-                const listItem = document.createElement('div');
-                listItem.className = 'aircraft-item';
-                listItem.dataset.hex = aircraft.hex;
-                listItem.innerHTML = `
-                    <strong>${callsign}</strong> (${aircraft.altitude} ft)
-                `;
-                
-                listItem.addEventListener('click', () => {
-                    showAircraftDetail(aircraft.hex);
-                    
-                    // Pan map to aircraft
-                    map.panTo([aircraft.lat, aircraft.lon]);
-                    
-                    // Open popup
-                    if (aircraftMarkers[aircraft.hex]) {
-                        aircraftMarkers[aircraft.hex].openPopup();
-                    }
-                });
-                
-                aircraftList.appendChild(listItem);
-            });
-        }
-        
-        // Show detailed aircraft information
-        function showAircraftDetail(hex) {
-            const aircraft = aircraftData[hex];
-            if (!aircraft) return;
-            
-            const detailPanel = document.getElementById('aircraft-detail');
-            detailPanel.style.display = 'block';
-            
-            const callsign = aircraft.flight ? aircraft.flight.trim() : 'Unknown';
-            
-            detailPanel.innerHTML = `
-                <h6>${callsign} (${aircraft.hex})</h6>
-                <table class="table table-sm">
-                    <tr>
-                        <th>Position:</th>
-                        <td>${aircraft.lat.toFixed(4)}°, ${aircraft.lon.toFixed(4)}°</td>
-                    </tr>
-                    <tr>
-                        <th>Altitude:</th>
-                        <td>${aircraft.altitude} ft</td>
-                    </tr>
-                    <tr>
-                        <th>Speed:</th>
-                        <td>${aircraft.speed} knots</td>
-                    </tr>
-                    <tr>
-                        <th>Heading:</th>
-                        <td>${aircraft.heading}°</td>
-                    </tr>
-                    <tr>
-                        <th>Squawk:</th>
-                        <td>${aircraft.squawk || 'N/A'}</td>
-                    </tr>
-                </table>
-                <button class="btn btn-sm btn-outline-secondary track-aircraft" data-hex="${hex}">Track Aircraft</button>
-            `;
-            
-            // Add event listener for track button
-            detailPanel.querySelector('.track-aircraft').addEventListener('click', (e) => {
-                const hexToTrack = e.target.dataset.hex;
-                // Toggle tracking for this aircraft
-                // Implementation would depend on your tracking feature
-                alert(`Now tracking aircraft ${callsign}`);
-            });
-        }
-        
-        // Handle altitude filter change
-        document.getElementById('altitude-filter').addEventListener('input', (e) => {
-            minAltitudeFilter = parseInt(e.target.value);
-            updateMap();
-        });
-        
-        // Handle show paths toggle
-        document.getElementById('show-paths').addEventListener('change', (e) => {
-            showPaths = e.target.checked;
-            // Implementation for showing paths would go here
-        });
-        
-        // Reset filters
-        document.getElementById('reset-filters').addEventListener('click', () => {
-            document.getElementById('altitude-filter').value = 0;
-            document.getElementById('show-paths').checked = false;
-            minAltitudeFilter = 0;
-            showPaths = false;
-            updateMap();
-        });
-        
-        // Handle aircraft search
-        document.getElementById('search-button').addEventListener('click', () => {
-            const searchTerm = document.getElementById('search-aircraft').value.toLowerCase();
-            const aircraftItems = document.querySelectorAll('.aircraft-item');
-            
-            aircraftItems.forEach(item => {
-                const aircraft = aircraftData[item.dataset.hex];
-                if (!aircraft) return;
-                
-                const callsign = aircraft.flight ? aircraft.flight.trim().toLowerCase() : '';
-                const hex = aircraft.hex.toLowerCase();
-                
-                if (callsign.includes(searchTerm) || hex.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-        
-        // Handle challenge answer submission
-        document.querySelectorAll('.submit-answer').forEach(button => {
-            button.addEventListener('click', () => {
-                const challengeId = button.dataset.challengeId;
-                const answer = document.getElementById(`answer-${challengeId}`).value;
-                const feedbackElement = document.getElementById(`feedback-${challengeId}`);
-                
-                // Submit answer to server
-                axios.post('/api/submit_answer', {
-                    challenge_id: challengeId,
-                    answer: answer
-                })
-                .then(response => {
-                    const result = response.data;
-                    
-                    // Update feedback
-                    if (result.is_correct) {
-                        feedbackElement.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
-                        // Update score
-                        document.getElementById('team-score').textContent = result.team_score;
-                    } else {
-                        feedbackElement.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
-                    }
-                })
-                .catch(error => {
-                    feedbackElement.innerHTML = `<div class="alert alert-danger">Error submitting answer. Please try again.</div>`;
-                    console.error('Error submitting answer:', error);
-                });
-            });
-        });
-        
-        // Update time remaining
-        function updateTimeRemaining() {
-            const timeElement = document.getElementById('time-remaining');
-            if (!timeElement) return;
-            
-            // This is just a simple countdown for demonstration purposes
-            // In a real app, you'd sync with the server
-            const currentText = timeElement.textContent;
-            const [minutes, seconds] = currentText.split(':').map(num => parseInt(num));
-            
-            let totalSeconds = minutes * 60 + seconds - 1;
-            if (totalSeconds < 0) totalSeconds = 0;
-            
-            const newMinutes = Math.floor(totalSeconds / 60);
-            const newSeconds = totalSeconds % 60;
-            
-            timeElement.textContent = `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
-        }
+        // Aircraft data and state
+        let activeAircraftHex = null;
+        let showHeatmap = false;
         
         // Initialize the page
         function initialize() {
+            // Initialize aircraft map
+            aircraftMap = new AircraftMap('map', mapConfig);
+            
+            // Override click handler
+            aircraftMap.onAircraftClick = function(hex) {
+                showAircraftDetail(hex);
+                activeAircraftHex = hex;
+            };
+            
+            // Set up event listeners
+            setupEventListeners();
+            
             // Initial data load
             updateAircraftData();
             
@@ -526,8 +367,61 @@
             setInterval(updateTimeRemaining, 1000); // Update time every second
         }
         
-        // Start everything when the page loads
-        window.addEventListener('load', initialize);
-    </script>
-</body>
-</html>
+        // Set up UI event listeners
+        function setupEventListeners() {
+            // Altitude filter events
+            document.getElementById('min-altitude-filter').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById('min-altitude-value').textContent = value.toLocaleString() + ' ft';
+                applyFilters();
+            });
+            
+            document.getElementById('max-altitude-filter').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById('max-altitude-value').textContent = value.toLocaleString() + ' ft';
+                applyFilters();
+            });
+            
+            // Show paths toggle
+            document.getElementById('show-paths').addEventListener('change', (e) => {
+                applyFilters();
+            });
+            
+            // Reset filters
+            document.getElementById('reset-filters').addEventListener('click', () => {
+                document.getElementById('min-altitude-filter').value = 0;
+                document.getElementById('max-altitude-filter').value = 50000;
+                document.getElementById('show-paths').checked = false;
+                
+                document.getElementById('min-altitude-value').textContent = '0 ft';
+                document.getElementById('max-altitude-value').textContent = '50,000 ft';
+                
+                applyFilters();
+            });
+            
+            // View all aircraft
+            document.getElementById('zoom-all').addEventListener('click', () => {
+                aircraftMap.zoomToAllAircraft();
+            });
+            
+            // Toggle heatmap
+            document.getElementById('toggle-heatmap').addEventListener('click', () => {
+                showHeatmap = !showHeatmap;
+                aircraftMap.toggleHeatmap(showHeatmap);
+                document.getElementById('toggle-heatmap').classList.toggle('btn-primary', showHeatmap);
+                document.getElementById('toggle-heatmap').classList.toggle('btn-outline-secondary', !showHeatmap);
+            });
+            
+            // Handle aircraft search
+            document.getElementById('search-button').addEventListener('click', searchAircraft);
+            document.getElementById('search-aircraft').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    searchAircraft();
+                }
+            });
+            
+            // Handle challenge answer submission
+            document.querySelectorAll('.submit-answer').forEach(button => {
+                button.addEventListener('click', submitChallengeAnswer);
+            });
+        }
